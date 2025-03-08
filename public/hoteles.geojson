@@ -1,0 +1,44 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.4214,
+          36.7213
+        ]
+      },
+      "properties": {
+        "name": "Hotel Ejemplo"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.4482823440218064,
+          36.71898349751659
+        ]
+      },
+      "properties": {
+        "name": "Casa"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.423627853393556,
+          36.71039780527197
+        ]
+      },
+      "properties": {
+        "name": "Puerto"
+      }
+    }
+  ]
+}

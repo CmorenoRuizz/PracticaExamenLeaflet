@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/leaflet.css">
+</head>
+<body class="d-flex flex-column vh-100 m-0 p-0">
+
+    <div class="container-fluid d-flex flex-column vh-100 p-0">
+        <h1 class="text-center text-white bg-primary py-2">Prueba de Leaflet con Bootstrap y SweetAlert2</h1>
+
+        <!-- Botón de prueba para SweetAlert2 -->
+        <div class="text-center py-2">
+            <button id="alertButton" class="btn btn-warning">Probar SweetAlert2</button>
+        </div>
+
+        <!-- Mapa ocupa el resto del espacio -->
+        <div id="map" class="flex-grow-1"></div>
+    </div>
+
+    <script src="/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/leaflet.js"></script>
+    <script src="/js/sweetalert2.all.min.js"></script>
+    <script>
+        // Inicializar el mapa
+        var map = L.map('map').setView([51.505, -0.09], 13);
+
+        // Añadir capa de OpenStreetMap
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        // Añadir un marcador con popup
+        var marker = L.marker([51.5, -0.09]).addTo(map);
+        marker.bindPopup("<b>¡Hola Mundo!</b><br>Leaflet y Bootstrap están funcionando.").openPopup();
+
+        // SweetAlert2 - Mostrar alerta al hacer clic en el botón
+        document.getElementById('alertButton').addEventListener('click', function() {
+            Swal.fire({
+                title: 'SweetAlert2 funcionando 🎉',
+                text: '¡Bootstrap, Leaflet y SweetAlert2 están integrados!',
+                icon: 'success',
+                confirmButtonText: 'Cerrar'
+            });
+        });
+    </script>
+
+</body>
+</html>

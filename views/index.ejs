@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/css/bootstrap.min.css' />
+    <link rel="stylesheet" href="/css/leaflet.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.25/css/dataTables.bootstrap5.min.css">
+  </head>
+  <body class="m-0 p-0">
+    <!-- Contenedor del mapa -->
+    <div class="container-fluid p-0 m-0">
+      <div id="map" class="vh-70" style="height: 70vh;"></div>
+    </div>
+    
+    <!-- Contenedor de la tabla con menos espacio arriba -->
+    <div class="container-fluid py-2">
+      <h3 class="text-center mb-2">Lista de Puntos de Interés</h3>
+      <table id="tabla" class="table table-striped table-hover w-100">
+        <thead class="table-dark">
+          <tr>
+            <th>Nombre</th>
+            <th>Latitud</th>
+            <th>Longitud</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Aquí se llenarán los datos dinámicamente -->
+        </tbody>
+      </table>
+    </div>
+  
+    <!-- Cargar scripts en el orden correcto usando CDN para DataTables -->
+    <script src="/js/jquery.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.25/js/dataTables.bootstrap5.min.js"></script>
+    <script src="/js/bootstrap.bundle.min.js"></script>  
+    <script src="/js/sweetalert2.all.min.js"></script>
+    <script src="/js/leaflet.js"></script>
+    <script>
+      // Esperar a que el documento esté completamente cargado
+      $(document).ready(function() {
+        // Inicializar el mapa
+        var map = L.map('map').setView([36.7213, -4.4214], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Inicializar DataTables (ahora con jQuery)
+        var tabla = $('#tabla').DataTable();
+
+        // Cargar datos desde hoteles.geojson
+        fetch('/hoteles.geojson')
+          .then(response => response.json())
+          .then(data => {
+            data.features.forEach(feature => {
+              var coordinates = feature.geometry.coordinates;
+              var name = feature.properties.name;
+              var lon = coordinates[0];
+              var lat = coordinates[1];
+              agregarPunto(name, lat, lon);
+            });
+          })
+          .catch(error => console.error('Error al cargar hoteles.geojson:', error));
+
+        // Función para agregar un punto al mapa y a la tabla
+        window.agregarPunto = function(nombre, lat, lon) {
+          tabla.row.add([
+            nombre,
+            lat,
+            lon,
+            '<button class="btn btn-primary btn-sm me-1" onclick="modificarPunto(this, \''+ nombre +'\', '+ lat +', '+ lon +')">Modificar</button>' +
+            '<button class="btn btn-danger btn-sm" onclick="eliminarPunto(this, '+ lat +', '+ lon +')">Eliminar</button>'
+          ]).draw();
+          
+          L.marker([lat, lon]).addTo(map).bindPopup(`<b>${nombre}</b>`);
+        };
+
+        // Evento para añadir un nuevo punto con SweetAlert2
+        map.on('click', function(e) {
+          Swal.fire({
+            title: 'Añadir punto',
+            html:
+              '<input id="nombre" class="swal2-input" placeholder="Nombre">',
+            showCancelButton: true,
+            confirmButtonText: 'Añadir'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              var nombre = document.getElementById('nombre').value;
+              if (nombre) {
+                agregarPunto(nombre, e.latlng.lat, e.latlng.lng);
+                guardarEnGeoJSON(nombre, e.latlng.lat, e.latlng.lng);
+              }
+            }
+          });
+        });
+
+        // Función para modificar un punto existente
+        window.modificarPunto = function(btn, nombreActual, latActual, lonActual) {
+          Swal.fire({
+            title: 'Modificar punto',
+            html:
+              '<input id="nombre" class="swal2-input" placeholder="Nombre" value="' + nombreActual + '">' +
+              '<input id="latitud" class="swal2-input" placeholder="Latitud" value="' + latActual + '" type="number" step="0.0001">' +
+              '<input id="longitud" class="swal2-input" placeholder="Longitud" value="' + lonActual + '" type="number" step="0.0001">',
+            showCancelButton: true,
+            confirmButtonText: 'Actualizar'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              var nuevoNombre = document.getElementById('nombre').value;
+              var nuevaLat = parseFloat(document.getElementById('latitud').value);
+              var nuevaLon = parseFloat(document.getElementById('longitud').value);
+              
+              if (nuevoNombre && !isNaN(nuevaLat) && !isNaN(nuevaLon)) {
+                // Actualizar en la tabla
+                var row = $(btn).closest('tr');
+                var rowData = tabla.row(row).data();
+                rowData[0] = nuevoNombre;
+                rowData[1] = nuevaLat;
+                rowData[2] = nuevaLon;
+                rowData[3] = '<button class="btn btn-primary btn-sm me-1" onclick="modificarPunto(this, \''+ nuevoNombre +'\', '+ nuevaLat +', '+ nuevaLon +')">Modificar</button>' +
+                             '<button class="btn btn-danger btn-sm" onclick="eliminarPunto(this, '+ nuevaLat +', '+ nuevaLon +')">Eliminar</button>';
+                tabla.row(row).data(rowData).draw();
+                
+                // Actualizar en el mapa (eliminar el marcador antiguo y crear uno nuevo)
+                map.eachLayer(function(layer) {
+                  if (layer instanceof L.Marker) {
+                    var pos = layer.getLatLng();
+                    if (Math.abs(pos.lat - latActual) < 0.0001 && Math.abs(pos.lng - lonActual) < 0.0001) {
+                      map.removeLayer(layer);
+                    }
+                  }
+                });
+                L.marker([nuevaLat, nuevaLon]).addTo(map).bindPopup(`<b>${nuevoNombre}</b>`);
+                
+                // Actualizar en el archivo GeoJSON
+                actualizarEnGeoJSON(nombreActual, latActual, lonActual, nuevoNombre, nuevaLat, nuevaLon);
+              }
+            }
+          });
+        };
+
+        // Función para actualizar un punto en el archivo GeoJSON
+        window.actualizarEnGeoJSON = function(nombreOriginal, latOriginal, lonOriginal, nuevoNombre, nuevaLat, nuevaLon) {
+          fetch('/actualizar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              original: { nombre: nombreOriginal, lat: latOriginal, lon: lonOriginal },
+              nuevo: { nombre: nuevoNombre, lat: nuevaLat, lon: nuevaLon }
+            })
+          });
+        };
+
+        // Guardar el nuevo punto en el archivo hoteles.geojson
+        window.guardarEnGeoJSON = function(nombre, lat, lon) {
+          fetch('/guardar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, lat, lon })
+          });
+        };
+
+        // Eliminar un punto de la tabla, del mapa y de hoteles.geojson
+        window.eliminarPunto = function(btn, lat, lon) {
+          var row = $(btn).closest('tr');
+          tabla.row(row).remove().draw();
+          
+          fetch('/eliminar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat, lon })
+          });
+        };
+      });
+    </script>
+  </body>
+</html>
