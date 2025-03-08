@@ -14,7 +14,7 @@ router.get('/testleaflet', function(req, res, next) {
 
 // Ruta para guardar puntos en el archivo GeoJSON
 router.post('/guardar', function(req, res) {
-  const { nombre, lat, lon } = req.body;
+  const { nombre, categoria, precio_medio, lat, lon, descripcion, direccion, telefono, imagen } = req.body;
   const filePath = path.join(__dirname, '../public/hoteles.geojson');
   
   // Leer el archivo actual
@@ -26,7 +26,7 @@ router.post('/guardar', function(req, res) {
     try {
       const geoJSON = JSON.parse(data);
       
-      // Añadir el nuevo punto
+      // Añadir el nuevo punto con todas las propiedades
       geoJSON.features.push({
         type: "Feature",
         geometry: { 
@@ -34,7 +34,14 @@ router.post('/guardar', function(req, res) {
           coordinates: [parseFloat(lon), parseFloat(lat)] 
         },
         properties: { 
-          name: nombre 
+          nombre: nombre,
+          name: nombre, // Mantener compatibilidad
+          categoria: categoria,
+          precio_medio: precio_medio,
+          descripcion: descripcion,
+          direccion: direccion,
+          telefono: telefono,
+          imagen: imagen
         }
       });
       
@@ -105,8 +112,15 @@ router.post('/actualizar', function(req, res) {
         // Comparamos con una pequeña tolerancia para evitar problemas con decimales
         if (Math.abs(coords[1] - original.lat) < 0.0001 && 
             Math.abs(coords[0] - original.lon) < 0.0001) {
-          // Actualizamos los datos
-          feature.properties.name = nuevo.nombre;
+          // Actualizamos todos los datos
+          feature.properties.nombre = nuevo.nombre;
+          feature.properties.name = nuevo.nombre; // Mantener compatibilidad
+          feature.properties.categoria = nuevo.categoria;
+          feature.properties.precio_medio = nuevo.precio_medio;
+          feature.properties.descripcion = nuevo.descripcion;
+          feature.properties.direccion = nuevo.direccion;
+          feature.properties.telefono = nuevo.telefono;
+          feature.properties.imagen = nuevo.imagen;
           feature.geometry.coordinates = [nuevo.lon, nuevo.lat];
           puntoModificado = true;
         }

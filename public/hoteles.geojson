@@ -37,7 +37,34 @@
         ]
       },
       "properties": {
-        "name": "Puerto"
+        "name": "Puerto",
+        "nombre": "Puerto",
+        "categoria": "No especificada",
+        "precio_medio": "No disponible",
+        "descripcion": "",
+        "direccion": "",
+        "telefono": "",
+        "imagen": "https://www.malagahistoria.com/malagahistoria/imagenes/puerto/100_8828.JPG"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.4246493369267945,
+          36.708814391361784
+        ]
+      },
+      "properties": {
+        "nombre": "Puerto 2",
+        "name": "Puerto 2",
+        "categoria": "2",
+        "precio_medio": "100",
+        "descripcion": "safsaf",
+        "direccion": "asfsafs",
+        "telefono": "543221132",
+        "imagen": "https://www.puertomalaga.com/wp-content/uploads/2021/11/puerto.jpg"
       }
     }
   ]

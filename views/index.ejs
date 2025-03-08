@@ -9,7 +9,7 @@
   <body class="m-0 p-0">
     <!-- Contenedor del mapa -->
     <div class="container-fluid p-0 m-0">
-      <div id="map" class="vh-70" style="height: 70vh;"></div>
+      <div id="map" style="height: 70vh;"></div>
     </div>
     
     <!-- Contenedor de la tabla con menos espacio arriba -->
@@ -19,6 +19,8 @@
         <thead class="table-dark">
           <tr>
             <th>Nombre</th>
+            <th>Categoría</th>
+            <th>Precio</th>
             <th>Latitud</th>
             <th>Longitud</th>
             <th>Acciones</th>
@@ -47,8 +49,13 @@
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        // Inicializar DataTables (ahora con jQuery)
-        var tabla = $('#tabla').DataTable();
+        // Inicializar DataTables con opciones responsive
+        var tabla = $('#tabla').DataTable({
+          responsive: true,
+          language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json'
+          }
+        });
 
         // Cargar datos desde hoteles.geojson
         fetch('/hoteles.geojson')
@@ -56,25 +63,71 @@
           .then(data => {
             data.features.forEach(feature => {
               var coordinates = feature.geometry.coordinates;
-              var name = feature.properties.name;
+              var properties = feature.properties;
               var lon = coordinates[0];
               var lat = coordinates[1];
-              agregarPunto(name, lat, lon);
+              
+              // Extraer propiedades (con valores predeterminados si no existen)
+              var nombre = properties.name || properties.nombre || "Sin nombre";
+              var categoria = properties.categoria || "No especificada";
+              var precio = properties.precio_medio || "No disponible";
+              var descripcion = properties.descripcion || "";
+              var direccion = properties.direccion || "";
+              var telefono = properties.telefono || "";
+              var imagen = properties.imagen || "";
+              
+              // Agregar el punto al mapa y tabla
+              agregarPunto(nombre, categoria, precio, lat, lon, descripcion, direccion, telefono, imagen);
             });
           })
           .catch(error => console.error('Error al cargar hoteles.geojson:', error));
 
         // Función para agregar un punto al mapa y a la tabla
-        window.agregarPunto = function(nombre, lat, lon) {
+        window.agregarPunto = function(nombre, categoria, precio, lat, lon, descripcion, direccion, telefono, imagen) {
+          // Añadir a la tabla
           tabla.row.add([
             nombre,
+            categoria,
+            precio,
             lat,
             lon,
-            '<button class="btn btn-primary btn-sm me-1" onclick="modificarPunto(this, \''+ nombre +'\', '+ lat +', '+ lon +')">Modificar</button>' +
-            '<button class="btn btn-danger btn-sm" onclick="eliminarPunto(this, '+ lat +', '+ lon +')">Eliminar</button>'
+            '<button class="btn btn-info btn-sm me-1" onclick="verDetalle(\'' + nombre + '\', \'' + categoria + '\', \'' + precio + '\', \'' + descripcion.replace(/'/g, "\\'") + '\', \'' + direccion.replace(/'/g, "\\'") + '\', \'' + telefono + '\', \'' + imagen + '\')">Ver</button>' +
+            '<button class="btn btn-primary btn-sm me-1" onclick="modificarPunto(this, \'' + nombre + '\', \'' + categoria + '\', \'' + precio + '\', ' + lat + ', ' + lon + ', \'' + descripcion.replace(/'/g, "\\'") + '\', \'' + direccion.replace(/'/g, "\\'") + '\', \'' + telefono + '\', \'' + imagen + '\')">Modificar</button>' +
+            '<button class="btn btn-danger btn-sm" onclick="eliminarPunto(this, ' + lat + ', ' + lon + ')">Eliminar</button>'
           ]).draw();
           
-          L.marker([lat, lon]).addTo(map).bindPopup(`<b>${nombre}</b>`);
+          // Crear contenido del popup para el marcador
+          var popupContent = `
+            <div style="width: 250px;">
+              <h5>${nombre}</h5>
+              ${imagen ? `<img src="${imagen}" class="img-fluid mb-2" style="max-height: 100px;">` : ''}
+              <p><strong>Categoría:</strong> ${categoria}</p>
+              <p><strong>Precio:</strong> ${precio}</p>
+              ${descripcion ? `<p>${descripcion}</p>` : ''}
+              ${direccion ? `<p><strong>Dirección:</strong> ${direccion}</p>` : ''}
+              ${telefono ? `<p><strong>Teléfono:</strong> ${telefono}</p>` : ''}
+            </div>
+          `;
+          
+          // Añadir al mapa
+          L.marker([lat, lon]).addTo(map)
+            .bindPopup(popupContent);
+        };
+
+        // Función para ver detalle de un punto
+        window.verDetalle = function(nombre, categoria, precio, descripcion, direccion, telefono, imagen) {
+          Swal.fire({
+            title: nombre,
+            html: `
+              ${imagen ? `<img src="${imagen}" class="img-fluid mb-3" style="max-height: 200px;">` : ''}
+              <p><strong>Categoría:</strong> ${categoria}</p>
+              <p><strong>Precio:</strong> ${precio}</p>
+              ${descripcion ? `<p>${descripcion}</p>` : ''}
+              ${direccion ? `<p><strong>Dirección:</strong> ${direccion}</p>` : ''}
+              ${telefono ? `<p><strong>Teléfono:</strong> ${telefono}</p>` : ''}
+            `,
+            width: 600
+          });
         };
 
         // Evento para añadir un nuevo punto con SweetAlert2
@@ -82,45 +135,135 @@
           Swal.fire({
             title: 'Añadir punto',
             html:
-              '<input id="nombre" class="swal2-input" placeholder="Nombre">',
+              '<div class="mb-3">' +
+              '<label for="nombre" class="form-label">Nombre</label>' +
+              '<input id="nombre" class="form-control" placeholder="Nombre del punto">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="categoria" class="form-label">Categoría</label>' +
+              '<input id="categoria" class="form-control" placeholder="Categoría (ej: 4 estrellas)">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="precio" class="form-label">Precio Medio</label>' +
+              '<input id="precio" class="form-control" placeholder="Precio (ej: 120€ por noche)">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="descripcion" class="form-label">Descripción</label>' +
+              '<textarea id="descripcion" class="form-control" placeholder="Descripción"></textarea>' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="direccion" class="form-label">Dirección</label>' +
+              '<input id="direccion" class="form-control" placeholder="Dirección completa">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="telefono" class="form-label">Teléfono</label>' +
+              '<input id="telefono" class="form-control" placeholder="Teléfono de contacto">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="imagen" class="form-label">URL de Imagen</label>' +
+              '<input id="imagen" class="form-control" placeholder="URL de la imagen">' +
+              '</div>',
             showCancelButton: true,
-            confirmButtonText: 'Añadir'
+            confirmButtonText: 'Añadir',
+            customClass: {
+              popup: 'swal-wide'
+            },
+            didOpen: () => {
+              // Añadir clase para aumentar el ancho
+              document.querySelector('.swal-wide').style.width = '500px';
+            }
           }).then((result) => {
             if (result.isConfirmed) {
               var nombre = document.getElementById('nombre').value;
+              var categoria = document.getElementById('categoria').value || "No especificada";
+              var precio = document.getElementById('precio').value || "No disponible";
+              var descripcion = document.getElementById('descripcion').value || "";
+              var direccion = document.getElementById('direccion').value || "";
+              var telefono = document.getElementById('telefono').value || "";
+              var imagen = document.getElementById('imagen').value || "";
+              
               if (nombre) {
-                agregarPunto(nombre, e.latlng.lat, e.latlng.lng);
-                guardarEnGeoJSON(nombre, e.latlng.lat, e.latlng.lng);
+                agregarPunto(nombre, categoria, precio, e.latlng.lat, e.latlng.lng, descripcion, direccion, telefono, imagen);
+                guardarEnGeoJSON(nombre, categoria, precio, e.latlng.lat, e.latlng.lng, descripcion, direccion, telefono, imagen);
               }
             }
           });
         });
 
         // Función para modificar un punto existente
-        window.modificarPunto = function(btn, nombreActual, latActual, lonActual) {
+        window.modificarPunto = function(btn, nombreActual, categoriaActual, precioActual, latActual, lonActual, descripcionActual, direccionActual, telefonoActual, imagenActual) {
           Swal.fire({
             title: 'Modificar punto',
             html:
-              '<input id="nombre" class="swal2-input" placeholder="Nombre" value="' + nombreActual + '">' +
-              '<input id="latitud" class="swal2-input" placeholder="Latitud" value="' + latActual + '" type="number" step="0.0001">' +
-              '<input id="longitud" class="swal2-input" placeholder="Longitud" value="' + lonActual + '" type="number" step="0.0001">',
+              '<div class="mb-3">' +
+              '<label for="nombre" class="form-label">Nombre</label>' +
+              '<input id="nombre" class="form-control" value="' + nombreActual + '">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="categoria" class="form-label">Categoría</label>' +
+              '<input id="categoria" class="form-control" value="' + categoriaActual + '">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="precio" class="form-label">Precio Medio</label>' +
+              '<input id="precio" class="form-control" value="' + precioActual + '">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="latitud" class="form-label">Latitud</label>' +
+              '<input id="latitud" class="form-control" value="' + latActual + '" type="number" step="0.0001">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="longitud" class="form-label">Longitud</label>' +
+              '<input id="longitud" class="form-control" value="' + lonActual + '" type="number" step="0.0001">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="descripcion" class="form-label">Descripción</label>' +
+              '<textarea id="descripcion" class="form-control">' + descripcionActual + '</textarea>' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="direccion" class="form-label">Dirección</label>' +
+              '<input id="direccion" class="form-control" value="' + direccionActual + '">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="telefono" class="form-label">Teléfono</label>' +
+              '<input id="telefono" class="form-control" value="' + telefonoActual + '">' +
+              '</div>' +
+              '<div class="mb-3">' +
+              '<label for="imagen" class="form-label">URL de Imagen</label>' +
+              '<input id="imagen" class="form-control" value="' + imagenActual + '">' +
+              '</div>',
             showCancelButton: true,
-            confirmButtonText: 'Actualizar'
+            confirmButtonText: 'Actualizar',
+            customClass: {
+              popup: 'swal-wide'
+            },
+            didOpen: () => {
+              // Añadir clase para aumentar el ancho
+              document.querySelector('.swal-wide').style.width = '500px';
+            }
           }).then((result) => {
             if (result.isConfirmed) {
               var nuevoNombre = document.getElementById('nombre').value;
+              var nuevaCategoria = document.getElementById('categoria').value;
+              var nuevoPrecio = document.getElementById('precio').value;
               var nuevaLat = parseFloat(document.getElementById('latitud').value);
               var nuevaLon = parseFloat(document.getElementById('longitud').value);
+              var nuevaDescripcion = document.getElementById('descripcion').value;
+              var nuevaDireccion = document.getElementById('direccion').value;
+              var nuevoTelefono = document.getElementById('telefono').value;
+              var nuevaImagen = document.getElementById('imagen').value;
               
               if (nuevoNombre && !isNaN(nuevaLat) && !isNaN(nuevaLon)) {
                 // Actualizar en la tabla
                 var row = $(btn).closest('tr');
                 var rowData = tabla.row(row).data();
                 rowData[0] = nuevoNombre;
-                rowData[1] = nuevaLat;
-                rowData[2] = nuevaLon;
-                rowData[3] = '<button class="btn btn-primary btn-sm me-1" onclick="modificarPunto(this, \''+ nuevoNombre +'\', '+ nuevaLat +', '+ nuevaLon +')">Modificar</button>' +
-                             '<button class="btn btn-danger btn-sm" onclick="eliminarPunto(this, '+ nuevaLat +', '+ nuevaLon +')">Eliminar</button>';
+                rowData[1] = nuevaCategoria;
+                rowData[2] = nuevoPrecio;
+                rowData[3] = nuevaLat;
+                rowData[4] = nuevaLon;
+                rowData[5] = '<button class="btn btn-info btn-sm me-1" onclick="verDetalle(\'' + nuevoNombre + '\', \'' + nuevaCategoria + '\', \'' + nuevoPrecio + '\', \'' + nuevaDescripcion.replace(/'/g, "\\'") + '\', \'' + nuevaDireccion.replace(/'/g, "\\'") + '\', \'' + nuevoTelefono + '\', \'' + nuevaImagen + '\')">Ver</button>' +
+                         '<button class="btn btn-primary btn-sm me-1" onclick="modificarPunto(this, \'' + nuevoNombre + '\', \'' + nuevaCategoria + '\', \'' + nuevoPrecio + '\', ' + nuevaLat + ', ' + nuevaLon + ', \'' + nuevaDescripcion.replace(/'/g, "\\'") + '\', \'' + nuevaDireccion.replace(/'/g, "\\'") + '\', \'' + nuevoTelefono + '\', \'' + nuevaImagen + '\')">Modificar</button>' +
+                         '<button class="btn btn-danger btn-sm" onclick="eliminarPunto(this, ' + nuevaLat + ', ' + nuevaLon + ')">Eliminar</button>';
                 tabla.row(row).data(rowData).draw();
                 
                 // Actualizar en el mapa (eliminar el marcador antiguo y crear uno nuevo)
@@ -132,33 +275,74 @@
                     }
                   }
                 });
-                L.marker([nuevaLat, nuevaLon]).addTo(map).bindPopup(`<b>${nuevoNombre}</b>`);
+                
+                // Crear contenido del popup para el nuevo marcador
+                var popupContent = `
+                  <div style="width: 250px;">
+                    <h5>${nuevoNombre}</h5>
+                    ${nuevaImagen ? `<img src="${nuevaImagen}" class="img-fluid mb-2" style="max-height: 100px;">` : ''}
+                    <p><strong>Categoría:</strong> ${nuevaCategoria}</p>
+                    <p><strong>Precio:</strong> ${nuevoPrecio}</p>
+                    ${nuevaDescripcion ? `<p>${nuevaDescripcion}</p>` : ''}
+                    ${nuevaDireccion ? `<p><strong>Dirección:</strong> ${nuevaDireccion}</p>` : ''}
+                    ${nuevoTelefono ? `<p><strong>Teléfono:</strong> ${nuevoTelefono}</p>` : ''}
+                  </div>
+                `;
+                
+                L.marker([nuevaLat, nuevaLon]).addTo(map)
+                  .bindPopup(popupContent);
                 
                 // Actualizar en el archivo GeoJSON
-                actualizarEnGeoJSON(nombreActual, latActual, lonActual, nuevoNombre, nuevaLat, nuevaLon);
+                actualizarEnGeoJSON(
+                  nombreActual, latActual, lonActual,
+                  nuevoNombre, nuevaCategoria, nuevoPrecio, nuevaLat, nuevaLon,
+                  nuevaDescripcion, nuevaDireccion, nuevoTelefono, nuevaImagen
+                );
               }
             }
           });
         };
 
         // Función para actualizar un punto en el archivo GeoJSON
-        window.actualizarEnGeoJSON = function(nombreOriginal, latOriginal, lonOriginal, nuevoNombre, nuevaLat, nuevaLon) {
+        window.actualizarEnGeoJSON = function(nombreOriginal, latOriginal, lonOriginal, 
+                                             nuevoNombre, nuevaCategoria, nuevoPrecio, nuevaLat, nuevaLon,
+                                             nuevaDescripcion, nuevaDireccion, nuevoTelefono, nuevaImagen) {
           fetch('/actualizar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               original: { nombre: nombreOriginal, lat: latOriginal, lon: lonOriginal },
-              nuevo: { nombre: nuevoNombre, lat: nuevaLat, lon: nuevaLon }
+              nuevo: { 
+                nombre: nuevoNombre, 
+                categoria: nuevaCategoria,
+                precio_medio: nuevoPrecio,
+                lat: nuevaLat, 
+                lon: nuevaLon,
+                descripcion: nuevaDescripcion,
+                direccion: nuevaDireccion,
+                telefono: nuevoTelefono,
+                imagen: nuevaImagen
+              }
             })
           });
         };
 
         // Guardar el nuevo punto en el archivo hoteles.geojson
-        window.guardarEnGeoJSON = function(nombre, lat, lon) {
+        window.guardarEnGeoJSON = function(nombre, categoria, precio, lat, lon, descripcion, direccion, telefono, imagen) {
           fetch('/guardar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, lat, lon })
+            body: JSON.stringify({ 
+              nombre, 
+              categoria, 
+              precio_medio: precio, 
+              lat, 
+              lon,
+              descripcion,
+              direccion,
+              telefono,
+              imagen
+            })
           });
         };
 
@@ -166,6 +350,16 @@
         window.eliminarPunto = function(btn, lat, lon) {
           var row = $(btn).closest('tr');
           tabla.row(row).remove().draw();
+          
+          // Eliminar del mapa
+          map.eachLayer(function(layer) {
+            if (layer instanceof L.Marker) {
+              var pos = layer.getLatLng();
+              if (Math.abs(pos.lat - lat) < 0.0001 && Math.abs(pos.lng - lon) < 0.0001) {
+                map.removeLayer(layer);
+              }
+            }
+          });
           
           fetch('/eliminar', {
             method: 'POST',
